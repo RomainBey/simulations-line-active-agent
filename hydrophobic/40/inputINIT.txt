@@ -1,0 +1,90 @@
+variable temperature equal 300.00 # in K
+variable seed equal 6767
+
+#package gpu 1 gpuID 1 1
+variable Otype	equal	1
+variable Htype	equal	2
+variable Ctype	equal	3
+variable OCtype	equal	4
+
+variable Heps	equal	0.000
+variable Hsig	equal	0.00000
+variable Oeps	equal	0.1553
+variable Osig	equal	3.166
+variable Ceps	equal	0.05589805	
+variable Csig	equal	2.757
+variable OCeps	equal	0.15998
+variable OCsig	equal	3.033
+
+variable epsO_wall equal 0.6
+variable sigO_wall equal 3.0
+variable epsC_wall equal 0.359620784
+variable sigC_wall equal 2.7955
+variable epsOC_wall equal 0.608386
+variable sigOC_wall equal 2.9335
+variable cutoff_wall equal 30.0
+
+
+variable dumptime	equal	 1000
+variable thermotime	equal	 10
+variable damp		equal	 10
+
+processors	* * * 
+
+units		real
+timestep	1	
+
+boundary p p f
+
+atom_style	full	
+bond_style	harmonic	
+angle_style	harmonic	
+
+pair_style lj/cut/coul/long/gpu 9 9
+kspace_style pppm/gpu 0.0001
+kspace_modify slab 3.0
+read_data data.INIT.txt
+neighbor	2.0 bin
+
+pair_coeff	${Htype}	${Htype}	${Heps}		${Hsig}
+pair_coeff	${Otype}	${Otype}	${Oeps}		${Osig}
+pair_coeff	${Ctype}	${Ctype}	${Ceps}		${Csig}
+pair_coeff	${OCtype}	${OCtype}	${OCeps}	${OCsig}
+pair_modify	mix arithmetic 
+
+group	OxW	type	${Otype}
+group	Car	type	${Ctype}
+group	OxC	type	${OCtype}
+group	fluid1	type	${Otype}	${Htype}
+group	fluid2	type	${Ctype}	${OCtype}
+
+
+neigh_modify	delay 5
+neigh_modify one 4000
+
+velocity all zero linear
+
+fix 1 all nve
+fix 1BIS all langevin ${temperature} ${temperature} ${damp} ${seed} 
+fix 2 all shake 0.0001 20 0 b 1 2 a 1
+fix 4 OxW wall/lj93 zlo -1.5 ${epsO_wall} ${sigO_wall} ${cutoff_wall} pbc no
+fix 5 OxW wall/lj93 zhi 27.5 ${epsO_wall} ${sigO_wall} ${cutoff_wall} pbc no
+fix 6 Car wall/lj93 zlo -1.5 ${epsC_wall} ${sigC_wall} ${cutoff_wall} pbc no
+fix 7 Car wall/lj93 zhi 27.5 ${epsC_wall} ${sigC_wall} ${cutoff_wall} pbc no
+fix 8 OxC wall/lj93 zlo -1.5 ${epsOC_wall} ${sigOC_wall} ${cutoff_wall} pbc no
+fix 9 OxC wall/lj93 zhi 27.5 ${epsOC_wall} ${sigOC_wall} ${cutoff_wall} pbc no
+
+compute temp_pres all temp
+compute Pres1 all pressure temp_pres
+compute Pres2 all pressure temp_pres ke
+compute Pres3 all pressure temp_pres virial
+
+dump		dmp all custom ${dumptime} dumpINIT.lammpstrj id type x y z vx vy vz
+dump_modify	dmp flush yes sort id format line "%d %d %.6f %.6f %.6f %.6f %.6f %.6f"
+
+thermo		${thermotime}
+thermo_style custom step temp epair emol ecoul evdwl c_Pres1 c_Pres1[1] c_Pres1[2] c_Pres1[3] c_Pres2 c_Pres2[1] c_Pres2[2] c_Pres2[3] c_Pres3 c_Pres3[1] c_Pres3[2] c_Pres3[3]
+thermo_modify	flush yes 
+
+run 100000
+write_data data.endINIT.txt
