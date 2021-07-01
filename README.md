@@ -1,4 +1,4 @@
-# Carbon dioxide as a line active agent
+# Carbon dioxide as a line active agent [![DOI](https://zenodo.org/badge/381493970.svg)](https://zenodo.org/badge/latestdoi/381493970)
 ## Description
 This repository contains the scripts that are necessary to run the simulations of the article:
 
